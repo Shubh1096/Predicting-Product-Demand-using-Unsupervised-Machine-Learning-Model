@@ -1,0 +1,151 @@
+---
+title: "DM Project"
+author: "Shubham Shendkar"
+---
+(a) Logistic Regression
+```{r}
+demand <- read.csv(choose.files())
+str(demand)
+```
+```{r}
+demand$Type <- factor(demand$Warehouse, levels = c("Whse_A", "Whse_S"), labels = c(1,0))
+demand <- demand[-c(1)]
+unique(demand$Product_Category)
+demand$Product_Category <- ifelse(demand$Product_Category=="Category_001",1,2)
+head(demand$Product_Category)
+```
+```{r}
+demand$Year <- demand$Date
+demand <- demand[-c(2)]
+demand$Month <- format(as.Date(demand$Year, format="%m/%d/%Y"),"%m")
+demand$Date <- format(as.Date(demand$Year, format="%m/%d/%Y"),"%d")
+demand$Year <- format(as.Date(demand$Year, format="%m/%d/%Y"),"%Y")
+```
+```{r}
+library(ggplot2)
+ggplot(aes(x=Order_Demand, y = Type), data = demand) + geom_boxplot()
+```
+```{r}
+head(demand)
+```
+```{r}
+summary(demand)
+```
+```{r}
+plot(demand)
+```
+Two-way table of factor variables
+```{r}
+xtabs(~Type, data = demand)
+```
+Splitting data
+```{r}
+train.in <- sample(c(1:dim(demand)[1]), dim(demand)[1]*0.6)
+train <- demand[train.in, ]
+test.in <- sample(c(1:dim(demand)[1]), dim(demand)[1]*0.4)
+test <- demand[test.in, ]
+```
+Logistic regression model
+```{r}
+logmodel <- glm(Type~., data = train, family = 'binomial')
+summary(logmodel)
+```
+Prediction
+```{r}
+pred1 <- predict(logmodel, train, type = 'response')
+head(pred1)
+head(train)
+```
+```{r}
+pred2 <- predict(logmodel, test, type = 'response')
+head(pred2)
+head(test)
+```
+Misclassification error - train data
+```{r}
+error1 <- ifelse(pred1>0.5, 1, 0)
+table1 <- table(Predicted = error1, Actual = train$Type)
+table1
+1 - sum(diag(table1))/sum(table1)
+```
+Misclassification error - test data
+```{r}
+error2 <- ifelse(pred2>0.5, 1, 0)
+table2 <- table(Predicted = error2, Actual = test$Type)
+table2
+1 - sum(diag(table2))/sum(table2)
+```
+(b)Random Forest
+```{r}
+str(demand)
+table(demand$Type)
+```
+Random Forest
+```{r}
+#library(randomForest)
+set.seed(222)
+randomforest <- randomForest(Type~., data=train, ntree = 300, importance = TRUE, proximity = TRUE)
+print(randomforest)
+attributes(randomforest)
+```
+Prediction & Confusion Matrix - train data
+```{r}
+#library(caret)
+rf_pred1 <- predict(randomforest, train)
+confusionMatrix(rf_pred1, train$Type)
+```
+Prediction & Confusion Matrix - test data
+```{r}
+rf_pred2 <- predict(randomforest, test)
+confusionMatrix(rf_pred2, test$Type)
+```
+Error
+```{r}
+plot(randomforest)
+```
+(c) Naive Bayes
+```{r}
+#install.packages("naivebayes")
+#install.packages("caTools")
+#install.packages("caret")
+#install.packages("ggplot2")
+#library(caret)
+#library(caTools)
+#library(naivebayes)
+#library(ggplot2)
+str(demand)
+```
+```{r}
+demand$Type <- as.numeric(demand$Type)
+demand$Order_Demand <- as.numeric(demand$Order_Demand)
+demand$Year <- as.numeric(demand$Year)
+demand$Month <- as.numeric(demand$Month)
+demand$Date <- as.numeric(demand$Date)
+normalize <- function(x) {
+return ((x - min(x)) / (max(x) - min(x)))
+}
+demand.n <- normalize(demand)
+```
+Naive Bayes
+```{r}
+Naive <- naive_bayes(Type~.,data=train, laplace = FALSE)
+pred.Naive <- predict(Naive,newdata=test[,-1])
+confusionMatrix(pred.Naive,test$Type)
+```
+(d)Classification Tree
+```{r}
+#library(rpart)
+classtree <- rpart(Type~., data = train, method = "class",control = rpart.control(maxdepth = 3))
+printcp(classtree)
+```
+```{r}
+library(rpart.plot)
+prp(classtree, type = 1, extra = 1, split.font = 1, varlen = -10)
+```
+```{r}
+classtree.cv <- rpart(Type~.,data = train, method="anova", cp=0.00001, minsplit=2, xval=5)
+#Pruning the tree
+classtree.pruned <- prune(classtree.cv, cp = classtree.cv$cptable[which.min(classtree.cv$cptable[,"xerror"]),"CP"])
+IE 7275 Data Mining in Engineering
+16
+prp(classtree.pruned, type = 1, extra = 1, split.font = 1, varlen = -10)
